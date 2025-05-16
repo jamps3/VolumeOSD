@@ -9,7 +9,7 @@
   "ProgressBarForegroundColor": "#00FF00",
   "Transparency": 20,
   "Position": "Top Center",
-  "ShowOnPrimary": true,
+  "ShowOnPrimary": false,
   "ShowTrayIcon": true,
   "DisplayDuration": 3
 }

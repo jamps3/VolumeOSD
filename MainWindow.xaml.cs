@@ -49,6 +49,7 @@ namespace VolumeOSD
         private readonly DispatcherTimer hideTimer;
         private bool isUpdatingPosition = false;
         private int volume;
+        private System.Windows.Forms.Screen lastUsedScreen = null; // Track the last used screen
         
         public int Volume
         {
@@ -310,14 +311,82 @@ namespace VolumeOSD
 
             try
             {
+                // Get all screens in the system
                 var screens = System.Windows.Forms.Screen.AllScreens;
-                var targetScreen = Settings.Current.ShowOnPrimary ? 
-                    System.Windows.Forms.Screen.PrimaryScreen : 
-                    screens.FirstOrDefault() ?? System.Windows.Forms.Screen.PrimaryScreen;
-
+                System.Diagnostics.Debug.WriteLine($"Found {screens.Length} screen(s)");
+                
+                // Log all screens info for better debugging
+                for (int i = 0; i < screens.Length; i++)
+                {
+                    var screen = screens[i];
+                    System.Diagnostics.Debug.WriteLine($"Screen {i}: Bounds={screen.Bounds}, " +
+                                                     $"WorkingArea={screen.WorkingArea}, " +
+                                                     $"Primary={screen.Primary}, " +
+                                                     $"DeviceName={screen.DeviceName}");
+                }
+                
+                // Log primary screen info
+                var primaryScreen = System.Windows.Forms.Screen.PrimaryScreen;
+                System.Diagnostics.Debug.WriteLine($"Primary screen: Bounds={primaryScreen.Bounds}, WorkingArea={primaryScreen.WorkingArea}, Primary={primaryScreen.Primary}");
+                System.Diagnostics.Debug.WriteLine($"Last used screen: {(lastUsedScreen != null ? lastUsedScreen.DeviceName : "None")}");
+                
+                // Determine target screen based on settings
+                System.Windows.Forms.Screen targetScreen;
+                
+                if (Settings.Current.ShowOnPrimary)
+                {
+                    // Always use primary screen when ShowOnPrimary is true
+                    targetScreen = primaryScreen;
+                    System.Diagnostics.Debug.WriteLine("ShowOnPrimary=true: Using PRIMARY screen per settings");
+                }
+                else
+                {
+                    // Get current screen based on visibility status and history
+                    System.Windows.Forms.Screen currentScreen;
+                    
+                    if (IsVisible)
+                    {
+                        // Get window's current screen from its position
+                        var windowHandle = new WindowInteropHelper(this).Handle;
+                        currentScreen = System.Windows.Forms.Screen.FromHandle(windowHandle);
+                        System.Diagnostics.Debug.WriteLine($"Window visible, getting screen from window handle: {windowHandle}");
+                    }
+                    else if (lastUsedScreen != null)
+                    {
+                        // Use last used screen if available and still connected
+                        var foundScreen = screens.FirstOrDefault(s => s.DeviceName == lastUsedScreen.DeviceName);
+                        if (foundScreen != null)
+                        {
+                            currentScreen = foundScreen;
+                            System.Diagnostics.Debug.WriteLine($"Window not visible, using last used screen: {currentScreen.DeviceName}");
+                        }
+                        else
+                        {
+                            // Last used screen no longer available, fall back to primary
+                            currentScreen = primaryScreen;
+                            System.Diagnostics.Debug.WriteLine("Last used screen no longer available, falling back to primary");
+                        }
+                    }
+                    else
+                    {
+                        // No history, start on primary screen by default
+                        currentScreen = primaryScreen;
+                        System.Diagnostics.Debug.WriteLine("No screen history, using primary screen by default");
+                    }
+                    
+                    targetScreen = currentScreen;
+                    bool isCurrentPrimary = Object.ReferenceEquals(currentScreen, primaryScreen);
+                    System.Diagnostics.Debug.WriteLine($"ShowOnPrimary=false: Using {(isCurrentPrimary ? "PRIMARY" : "SECONDARY")} screen, DeviceName={currentScreen.DeviceName}");
+                }
+                
+                // Save the selected screen for future reference
+                lastUsedScreen = targetScreen;
+                
+                // Get working area of the selected screen
                 var workingArea = targetScreen.WorkingArea;
+                
                 System.Diagnostics.Debug.WriteLine($"Updating position to: {Settings.Current.Position}");
-                System.Diagnostics.Debug.WriteLine($"Screen working area: Left={workingArea.Left}, Top={workingArea.Top}, Width={workingArea.Width}, Height={workingArea.Height}");
+                System.Diagnostics.Debug.WriteLine($"Target screen: Bounds={targetScreen.Bounds}, WorkingArea={workingArea}, IsPrimary={targetScreen == primaryScreen}");
 
                 this.UpdateLayout();
 
@@ -361,11 +430,30 @@ namespace VolumeOSD
                         top = workingArea.Bottom - ActualHeight - 10;
                         break;
                 }
+                
+                // Calculate window width and height (use ActualWidth/Height if available, otherwise use Width/Height)
+                double windowWidth = ActualWidth > 1 ? ActualWidth : Width;
+                double windowHeight = ActualHeight > 1 ? ActualHeight : Height;
+                
+                // Ensure coordinates are within screen bounds
+                left = Math.Max(workingArea.Left, Math.Min(left, workingArea.Right - windowWidth));
+                top = Math.Max(workingArea.Top, Math.Min(top, workingArea.Bottom - windowHeight));
+                
+                // Log position calculation
+                System.Diagnostics.Debug.WriteLine($"Position calculation: " +
+                                                 $"Window dimensions: {windowWidth}x{windowHeight}, " +
+                                                 $"Calculated position: ({left},{top}), " + 
+                                                 $"Screen working area: {workingArea}");
 
+                // Apply the calculated position
                 Left = left;
                 Top = top;
 
-                System.Diagnostics.Debug.WriteLine($"Window position set to: Left={Left}, Top={Top}");
+                // Log final position
+                System.Diagnostics.Debug.WriteLine($"Window position set to: Left={Left}, Top={Top} on " +
+                                                 $"Screen: {(Settings.Current.ShowOnPrimary ? "Primary" : "Current")}, " +
+                                                 $"Position: {Settings.Current.Position}, " +
+                                                 $"On screen: {targetScreen.DeviceName}");
             }
             finally
             {
@@ -379,6 +467,7 @@ namespace VolumeOSD
             
             if (e.PropertyName == nameof(Settings.Position) || e.PropertyName == nameof(Settings.ShowOnPrimary))
             {
+                System.Diagnostics.Debug.WriteLine($"Position or ShowOnPrimary changed: Position={Settings.Current.Position}, ShowOnPrimary={Settings.Current.ShowOnPrimary}");
                 UpdateSizeAndPosition();
             }
             else if (e.PropertyName == nameof(Settings.TextColor))
@@ -471,7 +560,11 @@ namespace VolumeOSD
                 // Make sure window is visible
                 if (!IsVisible)
                 {
-                    System.Diagnostics.Debug.WriteLine("Window not visible, showing it now");
+                    System.Diagnostics.Debug.WriteLine($"Window not visible, showing it now (ShowOnPrimary={Settings.Current.ShowOnPrimary})");
+                    // Log screen selection info before updating position
+                    System.Diagnostics.Debug.WriteLine($"Showing window - ShowOnPrimary={Settings.Current.ShowOnPrimary}, LastUsedScreen={lastUsedScreen?.DeviceName ?? "None"}");
+                    
+                    // Ensure position is updated first using the correct screen
                     UpdateSizeAndPosition();
                     
                     // Reset window state and show window
