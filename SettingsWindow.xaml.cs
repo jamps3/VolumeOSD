@@ -1,0 +1,150 @@
+using System;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Forms;
+
+namespace VolumeOSD
+{
+    public partial class SettingsWindow : Window
+    {
+        private MainWindow previewWindow;
+        private bool isInitializing = true;
+
+        public SettingsWindow()
+        {
+            InitializeComponent();
+            DataContext = Settings.Current;
+
+            Loaded += (s, e) =>
+            {
+                // Set initial position in ComboBox
+                foreach (ComboBoxItem item in PositionSelector.Items)
+                {
+                    if (item.Content.ToString() == Settings.Current.Position)
+                    {
+                        PositionSelector.SelectedItem = item;
+                        break;
+                    }
+                }
+                isInitializing = false;
+            };
+        }
+
+        private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed)
+            {
+                DragMove();
+            }
+        }
+
+        private void CloseButton_Click(object sender, RoutedEventArgs e)
+        {
+            Hide();
+        }
+
+        private void TextColorPicker_Click(object sender, RoutedEventArgs e)
+        {
+            var colorDialog = new ColorDialog
+            {
+                Color = ColorFromString(Settings.Current.TextColor)
+            };
+
+            if (colorDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                Settings.Current.TextColor = ColorToString(colorDialog.Color);
+            }
+        }
+
+        private void BackgroundColorPicker_Click(object sender, RoutedEventArgs e)
+        {
+            var colorDialog = new ColorDialog
+            {
+                Color = ColorFromString(Settings.Current.BackgroundColor)
+            };
+
+            if (colorDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                Settings.Current.BackgroundColor = ColorToString(colorDialog.Color);
+            }
+        }
+
+        private void ProgressBarColorPicker_Click(object sender, RoutedEventArgs e)
+        {
+            var colorDialog = new ColorDialog
+            {
+                Color = ColorFromString(Settings.Current.ProgressBarColor)
+            };
+
+            if (colorDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                Settings.Current.ProgressBarColor = ColorToString(colorDialog.Color);
+            }
+        }
+
+        private System.Drawing.Color ColorFromString(string colorString)
+        {
+            try
+            {
+                var wpfColor = (Color)ColorConverter.ConvertFromString(colorString);
+                return System.Drawing.Color.FromArgb(wpfColor.R, wpfColor.G, wpfColor.B);
+            }
+            catch
+            {
+                return System.Drawing.Color.Black;
+            }
+        }
+
+        private string ColorToString(System.Drawing.Color color)
+        {
+            return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+        }
+
+        private void PositionSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isInitializing || PositionSelector.SelectedItem == null) return;
+
+            var selectedPosition = (PositionSelector.SelectedItem as ComboBoxItem)?.Content.ToString();
+            if (selectedPosition != null && selectedPosition != Settings.Current.Position)
+            {
+                Settings.Current.Position = selectedPosition;
+                System.Diagnostics.Debug.WriteLine($"Position changed to: {selectedPosition}");
+            }
+        }
+
+        private void Save_Click(object sender, RoutedEventArgs e)
+        {
+            Settings.Save();
+            Hide();
+        }
+
+        private void Test_Click(object sender, RoutedEventArgs e)
+        {
+            if (previewWindow != null)
+            {
+                previewWindow.Close();
+                previewWindow = null;
+            }
+
+            // Create a new preview window
+            previewWindow = new MainWindow();
+
+            // Show at 50% volume for preview
+            previewWindow.UpdateVolume(50);
+        }
+
+        protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
+        {
+            e.Cancel = true;
+            Hide();
+
+            if (previewWindow != null)
+            {
+                previewWindow.Close();
+                previewWindow = null;
+            }
+        }
+    }
+}

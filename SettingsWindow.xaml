@@ -1,0 +1,176 @@
+<Window x:Class="VolumeOSD.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:VolumeOSD"
+        Title="VolumeOSD Configuration" 
+        Width="750" 
+        SizeToContent="Height"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        AllowsTransparency="True" 
+        Background="Transparent"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+    <Window.Resources>
+        <local:StringToColorConverter x:Key="StringToColorConverter"/>
+    </Window.Resources>
+    <Border BorderThickness="1" BorderBrush="{Binding TextColor}" CornerRadius="5">
+        <Border.Background>
+            <SolidColorBrush Color="{Binding BackgroundColor, Converter={StaticResource StringToColorConverter}}" 
+                            Opacity="{Binding BackgroundOpacity}"/>
+        </Border.Background>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="30"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Custom title bar -->
+            <Border Background="Transparent" MouseLeftButtonDown="Window_MouseLeftButtonDown">
+                <DockPanel LastChildFill="False">
+                    <TextBlock Text="VolumeOSD Configuration" 
+                             Foreground="{Binding TextColor}"
+                             Margin="10,5,0,0"/>
+                    <Button Content="✕" 
+                            DockPanel.Dock="Right"
+                            Click="CloseButton_Click"
+                            Width="30"
+                            Height="30"
+                            Style="{StaticResource {x:Static ToolBar.ButtonStyleKey}}"
+                            Foreground="{Binding TextColor}"/>
+                </DockPanel>
+            </Border>
+
+            <!-- Main content -->
+            <Grid Grid.Row="1" Margin="20">
+                <Grid.Resources>
+                    <Style TargetType="Label">
+                        <Setter Property="Foreground" Value="{Binding TextColor}"/>
+                    </Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{Binding TextColor}"/>
+                    </Style>
+                    <Style TargetType="GroupBox">
+                        <Setter Property="Foreground" Value="{Binding TextColor}"/>
+                        <Setter Property="Margin" Value="5,0,5,10"/>
+                        <Setter Property="Padding" Value="10"/>
+                    </Style>
+                    <Style TargetType="CheckBox">
+                        <Setter Property="Foreground" Value="{Binding TextColor}"/>
+                    </Style>
+                </Grid.Resources>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Left Column -->
+                <StackPanel Grid.Column="0">
+                    <GroupBox Header="General Settings">
+                        <StackPanel>
+                            <CheckBox Content="Start Hidden" IsChecked="{Binding StartHidden}" Margin="0,5"/>
+                            <CheckBox Content="Start with Windows" IsChecked="{Binding StartWithWindows}" Margin="0,5"/>
+                            <CheckBox Content="Show Tray Icon" IsChecked="{Binding ShowTrayIcon}" Margin="0,5"/>
+                            <CheckBox Content="Show On Primary Screen" IsChecked="{Binding ShowOnPrimary}" Margin="0,5"/>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <GroupBox Header="Display Settings">
+                        <StackPanel>
+                            <Label Content="Display Duration"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="50"/>
+                                </Grid.ColumnDefinitions>
+                                <Slider Grid.Column="0" Minimum="1" Maximum="10" Value="{Binding DisplayDuration}" 
+                                        TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding DisplayDuration, StringFormat='{}{0}s'}" 
+                                          VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            </Grid>
+                        </StackPanel>
+                    </GroupBox>
+
+                    <GroupBox Header="Window Position">
+                        <StackPanel>
+                            <Label Content="Position on Screen"/>
+                            <ComboBox x:Name="PositionSelector" 
+                                     SelectionChanged="PositionSelector_SelectionChanged"
+                                     SelectedValuePath="Content">
+                                <ComboBoxItem>Top Left</ComboBoxItem>
+                                <ComboBoxItem>Top Center</ComboBoxItem>
+                                <ComboBoxItem>Top Right</ComboBoxItem>
+                                <ComboBoxItem>Middle Left</ComboBoxItem>
+                                <ComboBoxItem>Middle Center</ComboBoxItem>
+                                <ComboBoxItem>Middle Right</ComboBoxItem>
+                                <ComboBoxItem>Bottom Left</ComboBoxItem>
+                                <ComboBoxItem>Bottom Center</ComboBoxItem>
+                                <ComboBoxItem>Bottom Right</ComboBoxItem>
+                            </ComboBox>
+                        </StackPanel>
+                    </GroupBox>
+                </StackPanel>
+
+                <!-- Right Column -->
+                <StackPanel Grid.Column="1">
+                    <GroupBox Header="Appearance">
+                        <StackPanel>
+                            <Label Content="Font Size"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="50"/>
+                                </Grid.ColumnDefinitions>
+                                <Slider Grid.Column="0" Minimum="10" Maximum="40" Value="{Binding FontSize}" 
+                                        TickFrequency="2" IsSnapToTickEnabled="True" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding FontSize}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            </Grid>
+
+                            <Label Content="Window Transparency" Margin="0,10,0,0"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="50"/>
+                                </Grid.ColumnDefinitions>
+                                <Slider Grid.Column="0" Minimum="0" Maximum="100" Value="{Binding Transparency}" 
+                                        TickFrequency="10" IsSnapToTickEnabled="True" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding Transparency, StringFormat='{}{0}%'}" 
+                                          VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            </Grid>
+
+                            <Label Content="Text Color" Margin="0,10,0,0"/>
+                            <DockPanel LastChildFill="True" Margin="0,0,0,10">
+                                <Button x:Name="TextColorPicker" Content="Pick Color" DockPanel.Dock="Right" 
+                                        Click="TextColorPicker_Click" Margin="5,0,0,0" Width="80"/>
+                                <TextBox Text="{Binding TextColor, UpdateSourceTrigger=PropertyChanged}"/>
+                            </DockPanel>
+
+                            <Label Content="Background Color" Margin="0,0,0,0"/>
+                            <DockPanel LastChildFill="True" Margin="0,0,0,10">
+                                <Button x:Name="BackgroundColorPicker" Content="Pick Color" DockPanel.Dock="Right" 
+                                        Click="BackgroundColorPicker_Click" Margin="5,0,0,0" Width="80"/>
+                                <TextBox Text="{Binding BackgroundColor, UpdateSourceTrigger=PropertyChanged}"/>
+                            </DockPanel>
+
+                            <Label Content="Progress Bar Color" Margin="0,0,0,0"/>
+                            <DockPanel LastChildFill="True" Margin="0,0,0,10">
+                                <Button x:Name="ProgressBarColorPicker" Content="Pick Color" DockPanel.Dock="Right" 
+                                        Click="ProgressBarColorPicker_Click" Margin="5,0,0,0" Width="80"/>
+                                <TextBox Text="{Binding ProgressBarColor, UpdateSourceTrigger=PropertyChanged}"/>
+                            </DockPanel>
+                        </StackPanel>
+                    </GroupBox>
+                </StackPanel>
+
+                <!-- Buttons at the bottom -->
+                <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
+                    <Button Content="Save" Click="Save_Click" Width="100" Margin="0,0,10,0"/>
+                    <Button Content="Test" Click="Test_Click" Width="100"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
