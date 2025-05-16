@@ -4,13 +4,64 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using System.ComponentModel;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Windows.Interop;
 
 namespace VolumeOSD
 {
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, INotifyPropertyChanged
     {
+        // Win32 constants for window positioning
+        private const int HWND_TOPMOST = -1;
+        private const int SWP_NOMOVE = 0x0002;
+        private const int SWP_NOSIZE = 0x0001;
+        private const int SWP_NOACTIVATE = 0x0010;
+        private const int SWP_SHOWWINDOW = 0x0040;
+        
+        // Window style constants
+        private const int GWL_EXSTYLE = -20;
+        private const int WS_EX_TOOLWINDOW = 0x00000080;
+        private const int WS_EX_TOPMOST = 0x00000008;
+        private const int WS_EX_NOACTIVATE = 0x08000000;
+        
+        // Win32 imports for window positioning and styles
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+        
+        [DllImport("user32.dll")]
+        private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+        
+        [DllImport("user32.dll")]
+        private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+        
+        [DllImport("kernel32.dll")]
+        private static extern int GetLastError();
+        
+        public event PropertyChangedEventHandler PropertyChanged;
+        
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+        
         private readonly DispatcherTimer hideTimer;
         private bool isUpdatingPosition = false;
+        private int volume;
+        
+        public int Volume
+        {
+            get => volume;
+            set
+            {
+                if (volume != value)
+                {
+                    volume = value;
+                    OnPropertyChanged(nameof(Volume));
+                }
+            }
+        }
 
         public MainWindow()
         {
@@ -29,11 +80,123 @@ namespace VolumeOSD
             // Listen for settings changes
             Settings.Current.PropertyChanged += Settings_PropertyChanged;
             
+            // Log current progress bar settings
+            LogProgressBarSettings();
+            
+            // Setup value change notification for progress bar
+            VolumeProgressBar.ValueChanged += (s, e) => 
+            {
+                System.Diagnostics.Debug.WriteLine($"Progress bar value changed: {e.NewValue}");
+            };
+            
+            // Log window properties
+            System.Diagnostics.Debug.WriteLine($"Window initialization - " +
+                $"WindowStyle: {WindowStyle}, " +
+                $"AllowsTransparency: {AllowsTransparency}, " +
+                $"Topmost: {Topmost}, " +
+                $"Background: {Background}, " +
+                $"Width: {Width}, " +
+                $"Height: {Height}, " +
+                $"Visibility: {Visibility}, " +
+                $"Opacity: {Opacity}");
+            
             // Hide window initially
             Hide();
+            System.Diagnostics.Debug.WriteLine("Window hidden initially");
 
             // Initial position update when loaded
-            this.Loaded += (s, e) => UpdateSizeAndPosition();
+            this.Loaded += (s, e) => 
+            {
+                UpdateSizeAndPosition();
+                EnsureAlwaysOnTop();
+            };
+            
+            // Handle window activation to stay on top of fullscreen apps
+            this.Activated += (s, e) => EnsureAlwaysOnTop();
+        }
+        
+        /// <summary>
+        /// Ensures the window stays on top of all applications including fullscreen apps
+        /// </summary>
+        private void EnsureAlwaysOnTop()
+        {
+            // Get handle for this window
+            var windowHandle = new WindowInteropHelper(this).Handle;
+            
+            System.Diagnostics.Debug.WriteLine($"Setting window always on top - Handle: {windowHandle}");
+            
+            try
+            {
+                // Get current extended window style
+                int exStyle = GetWindowLong(windowHandle, GWL_EXSTYLE);
+                System.Diagnostics.Debug.WriteLine($"Current extended window style: 0x{exStyle:X8}");
+                
+                // Add TOPMOST, TOOLWINDOW, and NOACTIVATE styles
+                exStyle |= WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE;
+                
+                // Set the new extended window style
+                int result = SetWindowLong(windowHandle, GWL_EXSTYLE, exStyle);
+                
+                if (result == 0)
+                {
+                    int error = GetLastError();
+                    System.Diagnostics.Debug.WriteLine($"Error setting window style. Error code: {error}");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"Window style set to: 0x{exStyle:X8}");
+                }
+                
+                // Set window to be topmost with special flags to ensure it's above fullscreen apps
+                bool posResult = SetWindowPos(
+                    windowHandle,                           // Window handle
+                    (IntPtr)HWND_TOPMOST,                   // Always on top
+                    0, 0,                                   // Ignore position
+                    0, 0,                                   // Ignore size
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW  // Flags
+                );
+                
+                if (!posResult)
+                {
+                    int error = GetLastError();
+                    System.Diagnostics.Debug.WriteLine($"Error setting window position. Error code: {error}");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("Window position set successfully");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error ensuring window is always on top: {ex.Message}");
+            }
+            
+            // Ensure the Topmost property is set (belt and suspenders)
+            this.Topmost = true;
+            System.Diagnostics.Debug.WriteLine($"Window topmost set to: {Topmost}");
+        }
+        
+        /// <summary>
+        /// Forces the window to be visible and active
+        /// </summary>
+        private void EnsureWindowVisible()
+        {
+            System.Diagnostics.Debug.WriteLine($"Ensuring window visibility - Before: {Visibility}, State: {WindowState}");
+            
+            // Reset window state to normal (in case it was minimized)
+            WindowState = WindowState.Normal;
+            
+            // Set visibility to Visible
+            Visibility = Visibility.Visible;
+            
+            // Force layout update
+            UpdateLayout();
+            
+            // Activate window to bring it to front
+            Activate();
+            
+            System.Diagnostics.Debug.WriteLine($"Window visibility ensured - After: {Visibility}, State: {WindowState}");
+            System.Diagnostics.Debug.WriteLine($"Window dimensions - ActualWidth: {ActualWidth}, ActualHeight: {ActualHeight}");
         }
 
         private void ApplySettings()
@@ -42,11 +205,102 @@ namespace VolumeOSD
             {
                 hideTimer.Interval = TimeSpan.FromSeconds(Settings.Current.DisplayDuration);
                 Opacity = (100 - Settings.Current.Transparency) / 100.0;
+                
+                // Log text color and other color settings
+                LogColorSettings();
+                
+                // Log progress bar color settings
+                LogProgressBarSettings();
+                
+                // Explicitly set progress bar colors in code in addition to XAML bindings
+                try
+                {
+                    // Create converter to convert color strings to actual colors
+                    var converter = new StringToColorConverter();
+                    
+                    // Get progress bar background and foreground colors from settings
+                    var bgColor = (Color)converter.Convert(Settings.Current.ProgressBarBackgroundColor, typeof(Color), null, null);
+                    var fgColor = (Color)converter.Convert(Settings.Current.ProgressBarForegroundColor, typeof(Color), null, null);
+                    
+                    System.Diagnostics.Debug.WriteLine($"Setting progress bar colors in code:");
+                    System.Diagnostics.Debug.WriteLine($"  Background: {Settings.Current.ProgressBarBackgroundColor} -> {bgColor}");
+                    System.Diagnostics.Debug.WriteLine($"  Foreground: {Settings.Current.ProgressBarForegroundColor} -> {fgColor}");
+                    
+                    // Find the track and indicator borders in the template
+                    if (VolumeProgressBar.Template != null)
+                    {
+                        // Force template regeneration and application
+                        VolumeProgressBar.ApplyTemplate();
+                        
+                        // Try to find PART_Track and PART_Indicator in the template
+                        if (VolumeProgressBar.Template.FindName("PART_Track", VolumeProgressBar) is System.Windows.Controls.Border track)
+                        {
+                            track.Background = new SolidColorBrush(bgColor);
+                            System.Diagnostics.Debug.WriteLine($"  PART_Track background set to {bgColor}");
+                        }
+                        
+                        if (VolumeProgressBar.Template.FindName("PART_Indicator", VolumeProgressBar) is System.Windows.Controls.Border indicator)
+                        {
+                            indicator.Background = new SolidColorBrush(fgColor);
+                            System.Diagnostics.Debug.WriteLine($"  PART_Indicator background set to {fgColor}");
+                        }
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine("Error: ProgressBar template is null");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error setting progress bar colors: {ex.Message}");
+                }
+                
+                // Ensure progress bar is visible and has non-zero size
+                System.Diagnostics.Debug.WriteLine($"ProgressBar visibility: {VolumeProgressBar.Visibility}, " +
+                                                  $"Width: {VolumeProgressBar.Width}, " +
+                                                  $"Height: {VolumeProgressBar.Height}, " +
+                                                  $"ActualWidth: {VolumeProgressBar.ActualWidth}, " +
+                                                  $"ActualHeight: {VolumeProgressBar.ActualHeight}");
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error applying settings: {ex.Message}");
             }
+        }
+        
+        private void LogColorSettings()
+        {
+            System.Diagnostics.Debug.WriteLine($"Window Color Settings:");
+            System.Diagnostics.Debug.WriteLine($"  Text Color: {Settings.Current.TextColor}");
+            System.Diagnostics.Debug.WriteLine($"  Background Color: {Settings.Current.BackgroundColor}");
+            System.Diagnostics.Debug.WriteLine($"  Transparency: {Settings.Current.Transparency}%");
+            
+            // Log actual text block foreground
+            var textBrush = VolumePercentText.Foreground as SolidColorBrush;
+            System.Diagnostics.Debug.WriteLine($"  Text Block Foreground: {(textBrush != null ? textBrush.Color.ToString() : "not a SolidColorBrush")}");
+            System.Diagnostics.Debug.WriteLine($"  Text Block Opacity: {VolumePercentText.Opacity}");
+            
+            try
+            {
+                // Apply text color using centralized method
+                ApplyTextColor();
+                
+                // Verify after setting
+                textBrush = VolumePercentText.Foreground as SolidColorBrush;
+                System.Diagnostics.Debug.WriteLine($"  Text Block Foreground after setting: {(textBrush != null ? textBrush.Color.ToString() : "not a SolidColorBrush")}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"  Error setting text color: {ex.Message}");
+            }
+        }
+        
+        private void LogProgressBarSettings()
+        {
+            System.Diagnostics.Debug.WriteLine($"Progress Bar Settings:");
+            System.Diagnostics.Debug.WriteLine($"  Background Color: {Settings.Current.ProgressBarBackgroundColor}");
+            System.Diagnostics.Debug.WriteLine($"  Foreground Color: {Settings.Current.ProgressBarForegroundColor}");
+            System.Diagnostics.Debug.WriteLine($"  Current Volume: {Volume}%");
         }
 
         private void UpdateSizeAndPosition()
@@ -127,6 +381,43 @@ namespace VolumeOSD
             {
                 UpdateSizeAndPosition();
             }
+            else if (e.PropertyName == nameof(Settings.TextColor))
+            {
+                System.Diagnostics.Debug.WriteLine($"Text color changed: {Settings.Current.TextColor}");
+                
+                // Use centralized method to apply text color
+                ApplyTextColor();
+                
+                // Force layout update to ensure color is applied
+                VolumePercentText.UpdateLayout();
+                
+                // Apply other settings
+                ApplySettings();
+                
+                // Force a second color application after settings
+                ApplyTextColor();
+            }
+            else if (e.PropertyName == nameof(Settings.ProgressBarBackgroundColor) || 
+                     e.PropertyName == nameof(Settings.ProgressBarForegroundColor))
+            {
+                System.Diagnostics.Debug.WriteLine($"Progress bar color changed: {e.PropertyName}");
+                LogProgressBarSettings();
+                
+                // Force progress bar style refresh
+                VolumeProgressBar.Style = null;
+                VolumeProgressBar.Style = this.FindResource("CustomProgressBar") as Style;
+                
+                // Force template reapplication
+                VolumeProgressBar.ApplyTemplate();
+                
+                // Apply settings (which will also explicitly set colors)
+                ApplySettings();
+                
+                // Force layout update to ensure changes are visible
+                VolumeProgressBar.UpdateLayout();
+                
+                System.Diagnostics.Debug.WriteLine("Progress bar style and template refreshed");
+            }
             else
             {
                 ApplySettings();
@@ -136,9 +427,10 @@ namespace VolumeOSD
         private void HideTimer_Tick(object sender, EventArgs e)
         {
             hideTimer.Stop();
+            System.Diagnostics.Debug.WriteLine("Hiding window after timer elapsed");
             Hide();
+            System.Diagnostics.Debug.WriteLine($"After Hide() - IsVisible={IsVisible}, Visibility={Visibility}");
         }
-
 
         public void UpdateVolume(int volumePercent)
         {
@@ -146,14 +438,111 @@ namespace VolumeOSD
 
             System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
-                VolumeProgressBar.Value = volumePercent;
+                System.Diagnostics.Debug.WriteLine($"Updating volume to: {volumePercent}%");
+                System.Diagnostics.Debug.WriteLine($"Window visibility before update: IsVisible={IsVisible}, Visibility={Visibility}, WindowState={WindowState}");
+                
+                // Apply text color BEFORE setting the text content
+                ApplyTextColor();
+                
+                // Update volume and text
+                Volume = volumePercent;
                 VolumePercentText.Text = volumePercent + "%";
                 
+                // Handle mute state (0% volume) visibility
+                bool isMuted = (volumePercent == 0);
+                System.Diagnostics.Debug.WriteLine($"Volume state: {(isMuted ? "MUTED (0%)" : volumePercent + "%")}");
+                
+                // Check element visibility matches volume state
+                if (MuteSymbol.Visibility != (isMuted ? Visibility.Visible : Visibility.Collapsed))
+                {
+                    System.Diagnostics.Debug.WriteLine($"Refreshing visibility states for volume: {volumePercent}%");
+                }
+                
+                // Force layout update to ensure visibility changes are applied
+                UpdateLayout();
+                
+                // Apply text color again to ensure it's set
+                ApplyTextColor();
+                
+                // Explicitly set progress bar value
+                VolumeProgressBar.Value = volumePercent;
+                System.Diagnostics.Debug.WriteLine($"Progress bar value set to: {VolumeProgressBar.Value}");
+                
+                // Make sure window is visible
                 if (!IsVisible)
                 {
+                    System.Diagnostics.Debug.WriteLine("Window not visible, showing it now");
                     UpdateSizeAndPosition();
+                    
+                    // Reset window state and show window
+                    WindowState = WindowState.Normal;
                     Show();
+                    
+                    // Force layout update and ensure always on top
+                    UpdateLayout();
+                    EnsureAlwaysOnTop();
+                    
+                    // Force activation and focus
+                    Activate();
+                    Focus();
+                    
+                    // Ensure proper visibility
+                    EnsureWindowVisible();
+                    
+                    // Verify window is now visible
+                    System.Diagnostics.Debug.WriteLine($"After Show() - IsVisible={IsVisible}, Visibility={Visibility}, WindowState={WindowState}");
+                    System.Diagnostics.Debug.WriteLine($"Window dimensions - ActualWidth: {ActualWidth}, ActualHeight: {ActualHeight}");
+                    System.Diagnostics.Debug.WriteLine($"ProgressBar - ActualWidth={VolumeProgressBar.ActualWidth}, ActualHeight={VolumeProgressBar.ActualHeight}");
                 }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("Window already visible");
+                    
+                    // Still ensure it's visible and on top
+                    EnsureWindowVisible();
+                    EnsureAlwaysOnTop();
+                    
+                    // Log window state
+                    System.Diagnostics.Debug.WriteLine($"Existing window - IsVisible={IsVisible}, Visibility={Visibility}, WindowState={WindowState}");
+                    System.Diagnostics.Debug.WriteLine($"Window dimensions - ActualWidth: {ActualWidth}, ActualHeight: {ActualHeight}");
+                    System.Diagnostics.Debug.WriteLine($"Element visibility - Mute Symbol: {MuteSymbol.Visibility}, Progress Bar: {VolumeProgressBar.Visibility}, Text: {VolumePercentText.Visibility}");
+                }
+                
+                // Log state after update
+                System.Diagnostics.Debug.WriteLine($"After volume update - Volume: {volumePercent}%");
+                
+                // If muted (0%), check mute symbol is visible and others are hidden
+                if (volumePercent == 0)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Mute state - MuteSymbol: {MuteSymbol.Visibility}, " +
+                                                     $"ProgressBar: {VolumeProgressBar.Visibility}, " +
+                                                     $"VolumeText: {VolumePercentText.Visibility}");
+                    
+                    // Force visibility update if needed
+                    if (MuteSymbol.Visibility != Visibility.Visible)
+                    {
+                        System.Diagnostics.Debug.WriteLine("Forcing mute symbol visibility update");
+                        UpdateLayout();
+                    }
+                }
+                else
+                {
+                    // Log progress bar measurements for non-zero volume
+                    System.Diagnostics.Debug.WriteLine($"Volume state - ProgressBar: " +
+                                                    $"ActualWidth={VolumeProgressBar.ActualWidth}, " +
+                                                    $"Indicator Width={(VolumeProgressBar.ActualWidth * volumePercent / 100.0):F2}, " +
+                                                    $"Visibility={VolumeProgressBar.Visibility}");
+                }
+                
+                // Force activation to ensure visibility
+                Focus();
+                Activate();
+                
+                // Log progress bar state
+                System.Diagnostics.Debug.WriteLine($"Progress bar - Visibility: {VolumeProgressBar.Visibility}, " +
+                    $"IsEnabled: {VolumeProgressBar.IsEnabled}, " +
+                    $"Background: {VolumeProgressBar.Background}, " +
+                    $"Foreground: {VolumeProgressBar.Foreground}");
             });
             
             hideTimer.Stop();
@@ -165,6 +554,62 @@ namespace VolumeOSD
             Settings.Current.PropertyChanged -= Settings_PropertyChanged;
             hideTimer.Stop();
             base.OnClosed(e);
+        }
+        
+        /// <summary>
+        /// Centralized method to apply text color consistently
+        /// </summary>
+        private void ApplyTextColor(bool forceUpdate = false)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"Applying text color: {Settings.Current.TextColor}");
+                
+                // Create converter to convert color string to actual color
+                var converter = new StringToColorConverter();
+                Color textColor;
+                
+                try 
+                {
+                    // Convert string color to WPF Color
+                    textColor = (Color)converter.Convert(Settings.Current.TextColor, typeof(Color), null, null);
+                    System.Diagnostics.Debug.WriteLine($"Converted color: {textColor}");
+                } 
+                catch (Exception ex) 
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error converting text color, using default: {ex.Message}");
+                    textColor = Colors.Yellow; // Default fallback color
+                }
+                
+                // Create a frozen brush for better thread safety and performance
+                var brush = new SolidColorBrush(textColor);
+                brush.Freeze();
+                
+                // Apply foreground brush to text element
+                VolumePercentText.Foreground = brush;
+                VolumePercentText.Opacity = 1.0;
+                
+                // Verify the brush was applied correctly
+                var appliedBrush = VolumePercentText.Foreground as SolidColorBrush;
+                if (appliedBrush != null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Applied text color: {appliedBrush.Color}, Frozen: {appliedBrush.IsFrozen}");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("Warning: Applied brush is not a SolidColorBrush");
+                }
+                
+                // If force update is requested, update the layout
+                if (forceUpdate)
+                {
+                    VolumePercentText.UpdateLayout();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error in ApplyTextColor: {ex.Message}");
+            }
         }
     }
 }

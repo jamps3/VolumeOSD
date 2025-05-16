@@ -71,16 +71,29 @@ namespace VolumeOSD
             }
         }
 
-        private void ProgressBarColorPicker_Click(object sender, RoutedEventArgs e)
+        private void ProgressBarBackgroundColorPicker_Click(object sender, RoutedEventArgs e)
         {
             var colorDialog = new ColorDialog
             {
-                Color = ColorFromString(Settings.Current.ProgressBarColor)
+                Color = ColorFromString(Settings.Current.ProgressBarBackgroundColor)
             };
 
             if (colorDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
-                Settings.Current.ProgressBarColor = ColorToString(colorDialog.Color);
+                Settings.Current.ProgressBarBackgroundColor = ColorToString(colorDialog.Color);
+            }
+        }
+
+        private void ProgressBarForegroundColorPicker_Click(object sender, RoutedEventArgs e)
+        {
+            var colorDialog = new ColorDialog
+            {
+                Color = ColorFromString(Settings.Current.ProgressBarForegroundColor)
+            };
+
+            if (colorDialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                Settings.Current.ProgressBarForegroundColor = ColorToString(colorDialog.Color);
             }
         }
 

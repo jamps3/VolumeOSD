@@ -1,0 +1,15 @@
+{
+  "StartHidden": false,
+  "StartWithWindows": false,
+  "FontSize": 30,
+  "TextColor": "#FFFFFF",
+  "BackgroundColor": "#000000",
+  "ProgressBarColor": "#00FF00",
+  "ProgressBarBackgroundColor": "#400040",
+  "ProgressBarForegroundColor": "#00FF00",
+  "Transparency": 20,
+  "Position": "Top Center",
+  "ShowOnPrimary": true,
+  "ShowTrayIcon": true,
+  "DisplayDuration": 3
+}

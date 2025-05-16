@@ -14,9 +14,12 @@ namespace VolumeOSD
         private bool startHidden = false;
         private bool startWithWindows = false;
         private int fontSize = 20;
-        private string textColor = "White";
-        private string backgroundColor = "Black";
+        private string textColor = "#FFFFFF";
+        private string backgroundColor = "#000000";
+        // Deprecated - to be removed in a future version
         private string progressBarColor = "#00FF00";  // Default lime green
+        private string progressBarBackgroundColor = "#333333"; // Default dark gray
+        private string progressBarForegroundColor = "#00FF00"; // Default lime green
         private int transparency = 80;
         private string position = "Bottom Right";
         private bool showOnPrimary = false;
@@ -55,10 +58,24 @@ namespace VolumeOSD
             set => SetProperty(ref backgroundColor, value);
         }
 
+        // Deprecated - will be removed in a future version
+        [Obsolete("Use ProgressBarForegroundColor instead")]
         public string ProgressBarColor
         {
             get => progressBarColor;
             set => SetProperty(ref progressBarColor, value);
+        }
+
+        public string ProgressBarBackgroundColor
+        {
+            get => progressBarBackgroundColor;
+            set => SetProperty(ref progressBarBackgroundColor, value);
+        }
+
+        public string ProgressBarForegroundColor
+        {
+            get => progressBarForegroundColor;
+            set => SetProperty(ref progressBarForegroundColor, value);
         }
 
         public int Transparency
@@ -69,7 +86,6 @@ namespace VolumeOSD
                 if (SetProperty(ref transparency, value))
                 {
                     OnPropertyChanged(nameof(BackgroundOpacity));
-                    OnPropertyChanged(nameof(WindowOpacity));
                 }
             }
         }
@@ -77,12 +93,6 @@ namespace VolumeOSD
         // Helper property for binding - not serialized
         [JsonIgnore]
         public double BackgroundOpacity
-        {
-            get => (100 - Transparency) / 100.0;
-        }
-
-        [JsonIgnore]
-        public double WindowOpacity
         {
             get => (100 - Transparency) / 100.0;
         }

@@ -2,33 +2,55 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:VolumeOSD"
-        Title="VolumeOSD" Height="120" Width="250" 
+        Title="VolumeOSD" Height="140" Width="250" 
         ResizeMode="NoResize" 
         WindowStartupLocation="Manual"
         Topmost="True" 
         ShowInTaskbar="False" 
         WindowStyle="None" 
         AllowsTransparency="True" 
-        Background="Transparent">
+        Background="Transparent"
+        Visibility="Visible">
     <Window.Resources>
         <local:StringToColorConverter x:Key="StringToColorConverter"/>
-        <Style x:Key="NonTransparentText" TargetType="TextBlock">
-            <Setter Property="Opacity" Value="1"/>
-        </Style>
+        <!-- Remove the NonTransparentText style as it might interfere with proper binding -->
         <Style x:Key="CustomProgressBar" TargetType="ProgressBar">
+            <Setter Property="Visibility" Value="Visible"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ProgressBar">
-                        <Grid>
+                        <Grid MinHeight="30" 
+                              Height="Auto" 
+                              Width="Auto"
+                              MinWidth="100"
+                              Visibility="Visible"
+                              Opacity="1"
+                              Background="Transparent"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch">
                             <Border x:Name="PART_Track" 
-                                    Background="Black" 
+                                    Background="{Binding DataContext.ProgressBarBackgroundColor, 
+                                                RelativeSource={RelativeSource AncestorType=Window}, 
+                                                Converter={StaticResource StringToColorConverter}}"
                                     BorderBrush="Transparent" 
-                                    BorderThickness="0" 
+                                    BorderThickness="1" 
+                                    MinHeight="30"
+                                    MinWidth="10"
+                                    Width="Auto"
+                                    Opacity="1"
+                                    Visibility="Visible"
+                                    HorizontalAlignment="Stretch"
                                     CornerRadius="5"/>
                             <Border x:Name="PART_Indicator" 
-                                    Background="{Binding ProgressBarColor, Converter={StaticResource StringToColorConverter}}" 
+                                    Background="{Binding DataContext.ProgressBarForegroundColor, 
+                                                RelativeSource={RelativeSource AncestorType=Window}, 
+                                                Converter={StaticResource StringToColorConverter}}"
                                     BorderBrush="Transparent" 
                                     BorderThickness="0" 
+                                    MinHeight="30"
+                                    MinWidth="5"
+                                    Opacity="1"
+                                    Visibility="Visible" 
                                     CornerRadius="5" 
                                     HorizontalAlignment="Left">
                                 <Border.Width>
@@ -37,7 +59,7 @@
                                             <local:ProgressToWidthConverter/>
                                         </MultiBinding.Converter>
                                         <Binding Path="Value" RelativeSource="{RelativeSource TemplatedParent}"/>
-                                        <Binding Path="ActualWidth" RelativeSource="{RelativeSource TemplatedParent}"/>
+                                        <Binding Path="ActualWidth" RelativeSource="{RelativeSource FindAncestor, AncestorType={x:Type Grid}}"/>
                                         <Binding Path="Minimum" RelativeSource="{RelativeSource TemplatedParent}"/>
                                         <Binding Path="Maximum" RelativeSource="{RelativeSource TemplatedParent}"/>
                                     </MultiBinding>
@@ -47,28 +69,101 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Volume, RelativeSource={RelativeSource AncestorType=Window}}" Value="0">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
     </Window.Resources>
     <Window.DataContext>
         <x:Static Member="local:Settings.Current"/>
     </Window.DataContext>
-    <Border CornerRadius="10">
+    <Border CornerRadius="10" Visibility="Visible">
         <Border.Background>
-            <SolidColorBrush Color="{Binding BackgroundColor, Converter={StaticResource StringToColorConverter}}" Opacity="{Binding BackgroundOpacity}"/>
+            <SolidColorBrush Color="{Binding BackgroundColor, Converter={StaticResource StringToColorConverter}}" 
+                             Opacity="{Binding BackgroundOpacity}"/>
         </Border.Background>
         <Grid>
-            <StackPanel Margin="10" Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+            <StackPanel Margin="10" Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Visible">
+                <!-- Mute symbol - only visible when volume is 0% -->
+                <TextBlock x:Name="MuteSymbol"
+                         Text="🔇" 
+                         Foreground="{Binding TextColor, Converter={StaticResource StringToColorConverter}}"
+                         TextElement.Foreground="{Binding TextColor, Converter={StaticResource StringToColorConverter}}"
+                         FontSize="40"
+                         Opacity="1"
+                         FontWeight="Bold"
+                         HorizontalAlignment="Center" 
+                         Margin="0,15,0,15">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Volume, RelativeSource={RelativeSource AncestorType=Window}}" Value="0">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <!-- Progress bar - hidden when volume is 0% -->
                 <ProgressBar x:Name="VolumeProgressBar" 
-                           Width="200" Height="30" 
+                           Width="200" Height="40" 
+                           MinHeight="30"
+                           MinWidth="100"
+                           Opacity="1"
+                           Margin="0,5,0,5"
                            Minimum="0" Maximum="100"
-                           Style="{StaticResource CustomProgressBar}"/>
+                           Value="{Binding Volume, RelativeSource={RelativeSource AncestorType=Window}}"
+                           Background="{Binding ProgressBarBackgroundColor, Converter={StaticResource StringToColorConverter}}"
+                           Foreground="{Binding ProgressBarForegroundColor, Converter={StaticResource StringToColorConverter}}"
+                           Style="{StaticResource CustomProgressBar}"
+                           HorizontalAlignment="Stretch"
+                           IsEnabled="True"
+                           Focusable="False">
+                    <ProgressBar.ToolTip>
+                        <ToolTip>
+                            <TextBlock>
+                                <Run Text="Background: "/>
+                                <Run Text="{Binding ProgressBarBackgroundColor}"/>
+                                <LineBreak/>
+                                <Run Text="Foreground: "/>
+                                <Run Text="{Binding ProgressBarForegroundColor}"/>
+                            </TextBlock>
+                        </ToolTip>
+                    </ProgressBar.ToolTip>
+                </ProgressBar>
+                
+                <!-- Volume percentage text - hidden when volume is 0% -->
                 <TextBlock x:Name="VolumePercentText" 
                          Text="0%" 
                          Foreground="{Binding TextColor, Converter={StaticResource StringToColorConverter}}" 
                          FontSize="{Binding FontSize}"
-                         Style="{StaticResource NonTransparentText}"
+                         Opacity="1"
+                         FontWeight="Bold"
                          HorizontalAlignment="Center" 
-                         Margin="0,5,0,0"/>
+                         Margin="0,5,0,0">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Volume, RelativeSource={RelativeSource AncestorType=Window}}" Value="0">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                    <TextBlock.ToolTip>
+                        <ToolTip>
+                            <TextBlock>
+                                <Run Text="Text Color: "/>
+                                <Run Text="{Binding TextColor}"/>
+                            </TextBlock>
+                        </ToolTip>
+                    </TextBlock.ToolTip>
+                </TextBlock>
             </StackPanel>
         </Grid>
     </Border>

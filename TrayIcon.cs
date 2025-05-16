@@ -14,6 +14,7 @@ namespace VolumeOSD
 
         public event EventHandler<int> VolumeLevelChanged;
         public event EventHandler SettingsRequested;
+        public event EventHandler MainWindowToggleRequested;
         public event EventHandler ExitRequested;
 
         public TrayIcon()
@@ -50,7 +51,8 @@ namespace VolumeOSD
             {
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
-                    SettingsRequested?.Invoke(this, EventArgs.Empty);
+                    // Toggle main window visibility instead of always showing settings
+                    MainWindowToggleRequested?.Invoke(this, EventArgs.Empty);
                 });
             }
         }

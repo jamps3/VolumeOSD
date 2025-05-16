@@ -155,11 +155,18 @@
                                 <TextBox Text="{Binding BackgroundColor, UpdateSourceTrigger=PropertyChanged}"/>
                             </DockPanel>
 
-                            <Label Content="Progress Bar Color" Margin="0,0,0,0"/>
+                            <Label Content="Progress Bar Background Color" Margin="0,0,0,0"/>
                             <DockPanel LastChildFill="True" Margin="0,0,0,10">
-                                <Button x:Name="ProgressBarColorPicker" Content="Pick Color" DockPanel.Dock="Right" 
-                                        Click="ProgressBarColorPicker_Click" Margin="5,0,0,0" Width="80"/>
-                                <TextBox Text="{Binding ProgressBarColor, UpdateSourceTrigger=PropertyChanged}"/>
+                                <Button x:Name="ProgressBarBackgroundColorPicker" Content="Pick Color" DockPanel.Dock="Right" 
+                                        Click="ProgressBarBackgroundColorPicker_Click" Margin="5,0,0,0" Width="80"/>
+                                <TextBox Text="{Binding ProgressBarBackgroundColor, UpdateSourceTrigger=PropertyChanged}"/>
+                            </DockPanel>
+
+                            <Label Content="Progress Bar Foreground Color" Margin="0,0,0,0"/>
+                            <DockPanel LastChildFill="True" Margin="0,0,0,10">
+                                <Button x:Name="ProgressBarForegroundColorPicker" Content="Pick Color" DockPanel.Dock="Right" 
+                                        Click="ProgressBarForegroundColorPicker_Click" Margin="5,0,0,0" Width="80"/>
+                                <TextBox Text="{Binding ProgressBarForegroundColor, UpdateSourceTrigger=PropertyChanged}"/>
                             </DockPanel>
                         </StackPanel>
                     </GroupBox>

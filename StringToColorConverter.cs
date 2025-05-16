@@ -13,38 +13,23 @@ namespace VolumeOSD
             {
                 if (value is string colorString)
                 {
-                    if (colorString.StartsWith("#"))
-                    {
-                        return (Color)ColorConverter.ConvertFromString(colorString);
-                    }
-                    else
-                    {
-                        // Handle named colors
-                        var converter = new BrushConverter();
-                        var brush = (SolidColorBrush)converter.ConvertFromString(colorString);
-                        return brush.Color;
-                    }
+                    return (Color)ColorConverter.ConvertFromString(colorString);
                 }
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Color conversion error: {ex.Message}");
             }
-            return Colors.Black;
+            return (Color)ColorConverter.ConvertFromString("#000000");
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is Color color)
             {
-                if (color == Colors.Black) return "Black";
-                if (color == Colors.White) return "White";
-                if (color == Colors.Green) return "Green";
-                if (color == Colors.Red) return "Red";
-                if (color == Colors.Blue) return "Blue";
                 return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
             }
-            return "Black";
+            return "#000000";
         }
     }
 }
