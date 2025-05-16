@@ -604,15 +604,44 @@ namespace VolumeOSD
                 VolumeProgressBar.Value = volumePercent;
                 System.Diagnostics.Debug.WriteLine($"Progress bar value set to: {VolumeProgressBar.Value}");
                 
+                // Check if we're being called from the Test button in settings (special case)
+                bool isTestButtonPreview = System.Diagnostics.StackTrace().ToString().Contains("Test_Click");
+                
                 // Make sure window is visible
                 if (!IsVisible)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Window not visible, showing it now (ShowOnPrimary={Settings.Current.ShowOnPrimary})");
-                    // Log screen selection info before updating position
-                    Log($"Showing window - ShowOnPrimary={Settings.Current.ShowOnPrimary}, LastUsedScreen={lastUsedScreen?.DeviceName ?? "None"}", true);
+                    // Check if we're on primary display
+                    var screens = System.Windows.Forms.Screen.AllScreens;
+                    var primaryScreen = System.Windows.Forms.Screen.PrimaryScreen;
+                    bool isOnPrimaryDisplay = (screens.Length == 1) || 
+                                              (lastUsedScreen != null && lastUsedScreen.DeviceName == primaryScreen.DeviceName);
                     
-                    // Ensure position is updated first using the correct screen
-                    UpdateSizeAndPosition();
+                    // Determine if we should show the window based on conditions:
+                    bool shouldShow = 
+                        // Case 1: Always show if test button is pressed
+                        isTestButtonPreview || 
+                        // Case 2: Show if ShowOnPrimary is true AND we're on primary display
+                        (Settings.Current.ShowOnPrimary && isOnPrimaryDisplay) ||
+                        // Case 3: Show if we're on a non-primary display (regardless of ShowOnPrimary)
+                        !isOnPrimaryDisplay;
+                    
+                    // Log the decision process
+                    Log($"Window display decision: " +
+                        $"ShowOnPrimary={Settings.Current.ShowOnPrimary}, " +
+                        $"IsTestButtonPreview={isTestButtonPreview}, " +
+                        $"IsOnPrimaryDisplay={isOnPrimaryDisplay}, " + 
+                        $"LastUsedScreen={lastUsedScreen?.DeviceName ?? "None"}, " +
+                        $"DECISION: {(shouldShow ? "SHOW" : "HIDE")}", true);
+                    
+                    // Only show if we meet one of the conditions above
+                    if (shouldShow)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Window not visible, showing it now (ShowOnPrimary={Settings.Current.ShowOnPrimary})");
+                        // Log screen selection info before updating position
+                        Log($"Showing window - ShowOnPrimary={Settings.Current.ShowOnPrimary}, LastUsedScreen={lastUsedScreen?.DeviceName ?? "None"}", true);
+                        
+                        // Ensure position is updated first using the correct screen
+                        UpdateSizeAndPosition();
                     
                     // Reset window state and show window
                     WindowState = WindowState.Normal;
@@ -633,6 +662,12 @@ namespace VolumeOSD
                     System.Diagnostics.Debug.WriteLine($"After Show() - IsVisible={IsVisible}, Visibility={Visibility}, WindowState={WindowState}");
                     System.Diagnostics.Debug.WriteLine($"Window dimensions - ActualWidth: {ActualWidth}, ActualHeight: {ActualHeight}");
                     System.Diagnostics.Debug.WriteLine($"ProgressBar - ActualWidth={VolumeProgressBar.ActualWidth}, ActualHeight={VolumeProgressBar.ActualHeight}");
+                    }
+                    else
+                    {
+                        // Skip showing window due to ShowOnPrimary settings
+                        Log($"Not showing window due to ShowOnPrimary setting: {Settings.Current.ShowOnPrimary}", true);
+                    }
                 }
                 else
                 {

@@ -11,6 +11,24 @@ namespace VolumeOSD
     {
         private MainWindow previewWindow;
         private bool isInitializing = true;
+        
+        // Converter for font size in "Settings saved" message
+        public class FontSizeConverter : IValueConverter
+        {
+            public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+            {
+                if (value is int fontSize)
+                {
+                    return Math.Max(14, fontSize * 0.8); // Use 80% of font size but minimum 14pt
+                }
+                return 14; // Default
+            }
+            
+            public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+            {
+                throw new NotImplementedException();
+            }
+        }
 
         public SettingsWindow()
         {
@@ -130,7 +148,27 @@ namespace VolumeOSD
         private void Save_Click(object sender, RoutedEventArgs e)
         {
             Settings.Save();
-            Hide();
+            
+            // Save settings
+            Settings.Save();
+            
+            // Show the saved message with animation (handled by XAML triggers)
+            SavedMessageText.Visibility = Visibility.Visible;
+            SavedMessageText.Opacity = 0; // Will be animated by the storyboard
+            
+            // The animation will fade out automatically, but set up a timer to hide completely
+            var timer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(3) // Match the total animation duration
+            };
+            
+            timer.Tick += (s, args) =>
+            {
+                SavedMessageText.Visibility = Visibility.Collapsed;
+                timer.Stop();
+            };
+            
+            timer.Start();
         }
 
         private void Test_Click(object sender, RoutedEventArgs e)
@@ -143,7 +181,10 @@ namespace VolumeOSD
 
             // Create a new preview window
             previewWindow = new MainWindow();
-
+            
+            // Before showing, ensure we update any debug logs for clarity
+            System.Diagnostics.Debug.WriteLine("TEST BUTTON PREVIEW: Creating preview window");
+            
             // Show at 50% volume for preview
             previewWindow.UpdateVolume(50);
         }
