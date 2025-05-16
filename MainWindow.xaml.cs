@@ -7,6 +7,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
+using System.IO;
 
 namespace VolumeOSD
 {
@@ -50,6 +51,8 @@ namespace VolumeOSD
         private bool isUpdatingPosition = false;
         private int volume;
         private System.Windows.Forms.Screen lastUsedScreen = null; // Track the last used screen
+        private static readonly string logFilePath = "VolumeOSD_debug.log";
+        private static readonly bool enableFileLogging = true;
         
         public int Volume
         {
@@ -304,6 +307,41 @@ namespace VolumeOSD
             System.Diagnostics.Debug.WriteLine($"  Current Volume: {Volume}%");
         }
 
+        /// <summary>
+        /// Logs a message to console, debug, and optionally to a file
+        /// </summary>
+        private static void Log(string message, bool important = false)
+        {
+            string timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
+            string formattedMessage = $"[{timestamp}] {message}";
+            
+            // Always log to Debug
+            System.Diagnostics.Debug.WriteLine(formattedMessage);
+            
+            // Log important messages to console
+            if (important)
+            {
+                Console.WriteLine(formattedMessage);
+            }
+            
+            // Optionally log to file
+            if (enableFileLogging)
+            {
+                try
+                {
+                    // Append to log file
+                    using (StreamWriter writer = new StreamWriter(logFilePath, true))
+                    {
+                        writer.WriteLine(formattedMessage);
+                    }
+                }
+                catch
+                {
+                    // Ignore file writing errors
+                }
+            }
+        }
+        
         private void UpdateSizeAndPosition()
         {
             if (isUpdatingPosition) return;
@@ -313,35 +351,42 @@ namespace VolumeOSD
             {
                 // Get all screens in the system
                 var screens = System.Windows.Forms.Screen.AllScreens;
-                System.Diagnostics.Debug.WriteLine($"Found {screens.Length} screen(s)");
+                Log($"Found {screens.Length} screen(s)", true);
                 
                 // Log all screens info for better debugging
                 for (int i = 0; i < screens.Length; i++)
                 {
                     var screen = screens[i];
-                    System.Diagnostics.Debug.WriteLine($"Screen {i}: Bounds={screen.Bounds}, " +
-                                                     $"WorkingArea={screen.WorkingArea}, " +
-                                                     $"Primary={screen.Primary}, " +
-                                                     $"DeviceName={screen.DeviceName}");
+                    Log($"Screen {i}: DeviceName={screen.DeviceName}, Primary={screen.Primary}", true);
                 }
                 
                 // Log primary screen info
                 var primaryScreen = System.Windows.Forms.Screen.PrimaryScreen;
-                System.Diagnostics.Debug.WriteLine($"Primary screen: Bounds={primaryScreen.Bounds}, WorkingArea={primaryScreen.WorkingArea}, Primary={primaryScreen.Primary}");
-                System.Diagnostics.Debug.WriteLine($"Last used screen: {(lastUsedScreen != null ? lastUsedScreen.DeviceName : "None")}");
+                Log($"Primary screen: DeviceName={primaryScreen.DeviceName}", true);
+                Log($"Last used screen: {(lastUsedScreen != null ? lastUsedScreen.DeviceName : "None")}", true);
                 
                 // Determine target screen based on settings
                 System.Windows.Forms.Screen targetScreen;
                 
-                if (Settings.Current.ShowOnPrimary)
+                // Simplified handling for single-screen case
+                if (screens.Length == 1)
                 {
-                    // Always use primary screen when ShowOnPrimary is true
+                    // If only one screen is available, use it regardless of ShowOnPrimary setting
+                    targetScreen = screens[0];
+                    lastUsedScreen = targetScreen;
+                    
+                    // Still log the setting for debugging
+                    Log($"Single screen environment - Using only available screen: {targetScreen.DeviceName} (ShowOnPrimary={Settings.Current.ShowOnPrimary})", true);
+                }
+                else if (Settings.Current.ShowOnPrimary)
+                {
+                    // Always use primary screen when ShowOnPrimary is true (multi-screen environment)
                     targetScreen = primaryScreen;
-                    System.Diagnostics.Debug.WriteLine("ShowOnPrimary=true: Using PRIMARY screen per settings");
+                    Log("ShowOnPrimary=true: Using PRIMARY screen per settings", true);
                 }
                 else
                 {
-                    // Get current screen based on visibility status and history
+                    // Get current screen based on visibility status and history (multi-screen environment)
                     System.Windows.Forms.Screen currentScreen;
                     
                     if (IsVisible)
@@ -376,7 +421,7 @@ namespace VolumeOSD
                     
                     targetScreen = currentScreen;
                     bool isCurrentPrimary = Object.ReferenceEquals(currentScreen, primaryScreen);
-                    System.Diagnostics.Debug.WriteLine($"ShowOnPrimary=false: Using {(isCurrentPrimary ? "PRIMARY" : "SECONDARY")} screen, DeviceName={currentScreen.DeviceName}");
+                    Log($"ShowOnPrimary=false: Using {(isCurrentPrimary ? "PRIMARY" : "SECONDARY")} screen, DeviceName={currentScreen.DeviceName}", true);
                 }
                 
                 // Save the selected screen for future reference
@@ -454,6 +499,8 @@ namespace VolumeOSD
                                                  $"Screen: {(Settings.Current.ShowOnPrimary ? "Primary" : "Current")}, " +
                                                  $"Position: {Settings.Current.Position}, " +
                                                  $"On screen: {targetScreen.DeviceName}");
+                
+                Log($"Window positioned at: ({Left},{Top}) on screen: {targetScreen.DeviceName}, Position: {Settings.Current.Position}, ShowOnPrimary: {Settings.Current.ShowOnPrimary}", true);
             }
             finally
             {
@@ -467,7 +514,7 @@ namespace VolumeOSD
             
             if (e.PropertyName == nameof(Settings.Position) || e.PropertyName == nameof(Settings.ShowOnPrimary))
             {
-                System.Diagnostics.Debug.WriteLine($"Position or ShowOnPrimary changed: Position={Settings.Current.Position}, ShowOnPrimary={Settings.Current.ShowOnPrimary}");
+                Log($"Position or ShowOnPrimary changed: Position={Settings.Current.Position}, ShowOnPrimary={Settings.Current.ShowOnPrimary}", true);
                 UpdateSizeAndPosition();
             }
             else if (e.PropertyName == nameof(Settings.TextColor))
@@ -562,7 +609,7 @@ namespace VolumeOSD
                 {
                     System.Diagnostics.Debug.WriteLine($"Window not visible, showing it now (ShowOnPrimary={Settings.Current.ShowOnPrimary})");
                     // Log screen selection info before updating position
-                    System.Diagnostics.Debug.WriteLine($"Showing window - ShowOnPrimary={Settings.Current.ShowOnPrimary}, LastUsedScreen={lastUsedScreen?.DeviceName ?? "None"}");
+                    Log($"Showing window - ShowOnPrimary={Settings.Current.ShowOnPrimary}, LastUsedScreen={lastUsedScreen?.DeviceName ?? "None"}", true);
                     
                     // Ensure position is updated first using the correct screen
                     UpdateSizeAndPosition();
