@@ -605,8 +605,9 @@ namespace VolumeOSD
                 System.Diagnostics.Debug.WriteLine($"Progress bar value set to: {VolumeProgressBar.Value}");
                 
                 // Check if we're being called from the Test button in settings (special case)
-                bool isTestButtonPreview = System.Diagnostics.StackTrace().ToString().Contains("Test_Click");
+                bool isTestButtonPreview = new System.Diagnostics.StackTrace().ToString().Contains("Test_Click");
                 
+
                 // Make sure window is visible
                 if (!IsVisible)
                 {

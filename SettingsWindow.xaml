@@ -12,7 +12,7 @@
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
     <Window.Resources>
         <local:StringToColorConverter x:Key="StringToColorConverter"/>
-        <local:SettingsWindow.FontSizeConverter x:Key="FontSizeConverter"/>
+        <local:FontSizeConverter x:Key="FontSizeConverter"/>
     </Window.Resources>
     <Border BorderThickness="1" BorderBrush="{Binding TextColor}" CornerRadius="5">
         <Border.Background>
