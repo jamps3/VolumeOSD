@@ -7,6 +7,7 @@ using System.Windows.Forms;
 using System.Windows.Data;
 using System.Windows.Interop;
 using System.Threading;
+using System.Windows.Media.Animation;
 
 namespace VolumeOSD
 {
@@ -150,24 +151,32 @@ namespace VolumeOSD
             // Save settings
             Settings.Save();
             
-            // Show the saved message with animation (handled by XAML triggers)
+            // Show the saved message
             SavedMessageText.Visibility = Visibility.Visible;
-            SavedMessageText.Opacity = 0; // Will be animated by the storyboard
             
-            // Clean up any existing timer
+            // Start the animation
+            var storyboard = (Storyboard)FindResource("FadeInOutStoryboard");
+            storyboard.Begin(SavedMessageText);
+            
+            // Set up timer to hide the message
             if (saveMessageTimer != null)
             {
                 saveMessageTimer.Stop();
                 saveMessageTimer = null;
             }
             
-            // Create new timer for hiding the message
             saveMessageTimer = new System.Windows.Threading.DispatcherTimer
             {
-                Interval = TimeSpan.FromSeconds(3) // Match the total animation duration
+                Interval = TimeSpan.FromSeconds(3)
             };
             
-            saveMessageTimer.Tick += SaveMessageTimer_Tick;
+            saveMessageTimer.Tick += (s, args) =>
+            {
+                SavedMessageText.Visibility = Visibility.Collapsed;
+                SavedMessageText.Opacity = 0;
+                saveMessageTimer.Stop();
+                saveMessageTimer = null;
+            };
             saveMessageTimer.Start();
         }
         
@@ -544,8 +553,40 @@ namespace VolumeOSD
             _hwndSource = PresentationSource.FromVisual(this) as HwndSource;
             if (_hwndSource != null)
             {
-                _hwndSource.AddHook(WndProc);
-                isSourceInitialized = true;
+                try
+                {
+                    // Initialize window styles
+                    var helper = new WindowInteropHelper(this);
+                    var exStyle = GetWindowLong(helper.Handle, GWL_EXSTYLE);
+                    SetWindowLong(helper.Handle, GWL_EXSTYLE, exStyle & ~WS_EX_NOACTIVATE);
+                    
+                    // Add window hook
+                    _hwndSource.AddHook(WndProc);
+                    
+                    // Set source initialized flag
+                    isSourceInitialized = true;
+                    
+                    // Initialize message text
+                    SavedMessageText.Opacity = 0;
+                    
+                    // Create the storyboard programmatically
+                    var storyboard = (Storyboard)FindResource("FadeInOutStoryboard");
+                    if (storyboard != null)
+                    {
+                        storyboard.Completed += (s, args) =>
+                        {
+                            if (SavedMessageText.Visibility == Visibility.Visible)
+                            {
+                                SavedMessageText.Visibility = Visibility.Collapsed;
+                                SavedMessageText.Opacity = 0;
+                            }
+                        };
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error in OnSourceInitialized: {ex.Message}");
+                }
             }
         }
 

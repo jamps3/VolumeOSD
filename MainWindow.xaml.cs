@@ -103,9 +103,13 @@ namespace VolumeOSD
                 $"Height: {Height}, " +
                 $"Visibility: {Visibility}, " +
                 $"Opacity: {Opacity}");
-            
+
             // Hide window initially
-            Hide();
+            // Hide();
+            this.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            this.Width = 800;
+            this.Height = 600;
+
             System.Diagnostics.Debug.WriteLine("Window hidden initially");
 
             // Initial position update when loaded

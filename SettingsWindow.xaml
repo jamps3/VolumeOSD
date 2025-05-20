@@ -13,6 +13,18 @@
     <Window.Resources>
         <local:StringToColorConverter x:Key="StringToColorConverter"/>
         <local:FontSizeConverter x:Key="FontSizeConverter"/>
+        <Storyboard x:Key="FadeInOutStoryboard">
+            <DoubleAnimation 
+                Storyboard.TargetProperty="Opacity"
+                From="0" To="1" Duration="0:0:0.3"/>
+            <DoubleAnimation 
+                Storyboard.TargetProperty="Opacity"
+                From="1" To="1" Duration="0:0:2"/>
+            <DoubleAnimation 
+                Storyboard.TargetProperty="Opacity"
+                From="1" To="0" Duration="0:0:0.7" 
+                BeginTime="0:0:2"/>
+        </Storyboard>
     </Window.Resources>
     <Border BorderThickness="1" BorderBrush="{Binding TextColor}" CornerRadius="5">
         <Border.Background>
@@ -187,29 +199,12 @@
                               FontWeight="Bold"
                               FontSize="{Binding FontSize, Converter={StaticResource FontSizeConverter}}"
                               Visibility="Collapsed"
-                              Foreground="{Binding TextColor, Converter={StaticResource StringToColorConverter}}">
-                        <TextBlock.Resources>
-                            <Storyboard x:Key="FadeInOutStoryboard">
-                                <DoubleAnimation 
-                                    Storyboard.TargetProperty="Opacity"
-                                    From="0" To="1" Duration="0:0:0.3"/>
-                                <DoubleAnimation 
-                                    Storyboard.TargetProperty="Opacity"
-                                    From="1" To="1" Duration="0:0:2"/>
-                                <DoubleAnimation 
-                                    Storyboard.TargetProperty="Opacity"
-                                    From="1" To="0" Duration="0:0:0.7" 
-                                    BeginTime="0:0:2"/>
-                            </Storyboard>
-                        </TextBlock.Resources>
-                        <TextBlock.Triggers>
-                            <EventTrigger RoutedEvent="TextBlock.Loaded">
-                                <BeginStoryboard Storyboard="{StaticResource FadeInOutStoryboard}"/>
-                            </EventTrigger>
-                            <EventTrigger RoutedEvent="TextBlock.IsVisibleChanged">
-                                <BeginStoryboard Storyboard="{StaticResource FadeInOutStoryboard}"/>
-                            </EventTrigger>
-                        </TextBlock.Triggers>
+                              Opacity="0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{Binding TextColor, Converter={StaticResource StringToColorConverter}}"/>
+                            </Style>
+                        </TextBlock.Style>
                     </TextBlock>
                 </StackPanel>
             </Grid>

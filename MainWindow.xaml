@@ -5,6 +5,8 @@
         Title="VolumeOSD" Height="140" Width="250" 
         ResizeMode="NoResize" 
         WindowStartupLocation="Manual"
+        Left="100"
+        Top="100"
         Topmost="True" 
         ShowInTaskbar="False" 
         WindowStyle="None" 
