@@ -107,21 +107,33 @@ namespace VolumeOSD
                     System.Diagnostics.Debug.WriteLine($"Position changing from {position} to {value}");
                     position = value;
                     OnPropertyChanged(nameof(Position));
-                    Save();
                 }
             }
         }
+        private bool isTemporaryShowOnPrimary = false;
 
         public bool ShowOnPrimary
         {
-            get => showOnPrimary;
+            get => isTemporaryShowOnPrimary || showOnPrimary;
             set
             {
                 if (SetProperty(ref showOnPrimary, value))
                 {
-                    OnPropertyChanged(nameof(Position));
+                    // Only notify position change if this is a permanent change
+                    if (!isTemporaryShowOnPrimary)
+                    {
+                        OnPropertyChanged(nameof(Position));
+                    }
                 }
             }
+        }
+
+        // Add method to temporarily override ShowOnPrimary
+        public void SetTemporaryShowOnPrimary(bool value)
+        {
+            isTemporaryShowOnPrimary = value;
+            OnPropertyChanged(nameof(ShowOnPrimary));
+            OnPropertyChanged(nameof(Position));
         }
 
         public bool ShowTrayIcon
@@ -141,7 +153,6 @@ namespace VolumeOSD
             if (Equals(field, value)) return false;
             field = value;
             OnPropertyChanged(propertyName);
-            Save();
             return true;
         }
 
